@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.vercel/
+*.log
+.DS_Store
+
+# generated single-file bundle (for the claude.ai artifact only)
+wardrobe-studio.html
