@@ -3,7 +3,8 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { RotateCcw } from "lucide-react";
 import { buildUnit } from "../three/buildUnit.js";
-import { getGoboTexture, getBackdropTexture } from "../three/textures.js";
+import { getGoboTexture } from "../three/textures.js";
+import { buildCove } from "../three/cove.js";
 
 // Self-contained WebGL viewport. Owns the renderer, lights, camera orbit and
 // door raycasting; rebuilds only the unit group when `design` changes.
@@ -42,8 +43,9 @@ export default function Viewport({ design }) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-    // Seamless neutral "cove" backdrop behind the product.
-    scene.background = getBackdropTexture();
+    // Neutral background; the cyclorama fills the frame, this only shows at the
+    // open sides so it's matched to the cove's upper tone to avoid any edge.
+    scene.background = new THREE.Color(0xd7d7da);
 
     // A soft key for the main shadow, kept gentle since the IBL carries the fill.
     const key = new THREE.DirectionalLight(0xffffff, 0.85);
@@ -67,13 +69,8 @@ export default function Viewport({ design }) {
     scene.add(gobo);
     scene.add(gobo.target);
 
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(1200, 1200),
-      new THREE.MeshStandardMaterial({ color: 0xc7c7ca, roughness: 0.85, metalness: 0.0, envMapIntensity: 0.4 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
+    // Seamless cyclorama — floor curves up into the back wall, no seam.
+    scene.add(buildCove());
 
     sceneRef.current = scene;
 
