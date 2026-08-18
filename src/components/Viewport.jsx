@@ -1,9 +1,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 import { RotateCcw } from "lucide-react";
 import { buildUnit } from "../three/buildUnit.js";
-import { getGoboTexture } from "../three/textures.js";
 import { buildCove } from "../three/cove.js";
 
 // The wardrobe sits back from centre so there's studio floor in front of it.
@@ -49,27 +49,41 @@ export default function Viewport({ design }) {
     // Warm cream background matching the cyclorama's upper tone (#E2DED0).
     scene.background = new THREE.Color(0xe2ded0);
 
-    // A soft key for the main shadow, kept gentle since the IBL carries the fill.
-    const key = new THREE.DirectionalLight(0xffffff, 0.85);
-    key.position.set(120, 200, 160);
-    key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
-    key.shadow.radius = 14;
-    key.shadow.blurSamples = 24;
-    Object.assign(key.shadow.camera, { left: -160, right: 160, top: 220, bottom: -160, near: 10, far: 700 });
-    key.shadow.bias = 0.0002;
-    key.shadow.camera.updateProjectionMatrix();
-    scene.add(key);
+    // ---- Studio softbox rig (RectAreaLights) ----
+    // Warm three-point-plus-overhead setup: big soft sources for gentle,
+    // wrapping light. Area lights can't cast shadows, so a dim directional
+    // aligned with the key handles the ground contact shadow.
+    RectAreaLightUniformsLib.init();
+    const aim = new THREE.Vector3(0, 110, UNIT_Z);
+    const softbox = (color, intensity, w, h, pos, target) => {
+      const l = new THREE.RectAreaLight(color, intensity, w, h);
+      l.position.set(pos[0], pos[1], pos[2]);
+      l.lookAt(target[0], target[1], target[2]);
+      scene.add(l);
+      return l;
+    };
+    // Key — large warm softbox, front-left, raised ~40°. Brightest.
+    softbox(0xffe1b8, 5.0, 260, 340, [-190, 250, 210], [aim.x, aim.y, aim.z]);
+    // Fill — bigger, softer, opposite side at ~55% of key, warm-neutral.
+    softbox(0xffeed6, 2.7, 340, 380, [210, 180, 200], [aim.x, aim.y, aim.z]);
+    // Rim / back — behind and above, grazes the top/back edges for separation.
+    softbox(0xffe9cc, 4.2, 260, 220, [70, 280, -280], [aim.x, aim.y + 40, aim.z]);
+    // Overhead — soft top light for even illumination across the tops.
+    softbox(0xfff1e2, 2.2, 320, 320, [-20, 360, -30], [aim.x, 0, aim.z]);
 
-    // Dappled gobo spot — projects the leaf-light pattern onto the floor for a
-    // sense of place, the way the reference gallery does.
-    const gobo = new THREE.SpotLight(0xffffff, 3.2, 1100, Math.PI / 4.2, 0.5, 0.5);
-    gobo.position.set(-160, 240, 200);
-    gobo.target.position.set(30, 0, 70);
-    gobo.map = getGoboTexture();
-    gobo.castShadow = false;
-    scene.add(gobo);
-    scene.add(gobo.target);
+    // Shadow-only directional, aligned with the key (RectAreaLights can't shadow).
+    const shadowLight = new THREE.DirectionalLight(0xffe8cf, 0.35);
+    shadowLight.position.set(-150, 240, 190);
+    shadowLight.target.position.set(0, 0, UNIT_Z);
+    shadowLight.castShadow = true;
+    shadowLight.shadow.mapSize.set(2048, 2048);
+    shadowLight.shadow.radius = 16;
+    shadowLight.shadow.blurSamples = 25;
+    Object.assign(shadowLight.shadow.camera, { left: -200, right: 200, top: 260, bottom: -200, near: 10, far: 800 });
+    shadowLight.shadow.bias = 0.0002;
+    shadowLight.shadow.camera.updateProjectionMatrix();
+    scene.add(shadowLight);
+    scene.add(shadowLight.target);
 
     // Seamless cyclorama — floor curves up into the back wall, no seam.
     scene.add(buildCove());
