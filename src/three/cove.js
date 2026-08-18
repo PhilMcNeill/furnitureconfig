@@ -1,50 +1,83 @@
 import * as THREE from "three";
 
-// A seamless studio cyclorama ("cove"): one continuous surface that runs along
-// the floor, curves up through a fillet, and continues as the back wall — so
-// there is no floor/wall seam at all. Swept from a 2D profile across the width.
+// A three-sided studio cove: a flat floor with back + left + right walls, each
+// meeting the floor through a large curved bevel and each other through rounded
+// vertical corners — a seamless corner cyclorama, open at the front and top.
+//
+// Built by sweeping a 2D profile (floor bevel → vertical wall) along a 3-sided
+// rounded-rectangle path. A flat plane fills the interior floor.
 export function buildCove() {
-  const R = 80; // fillet radius where floor meets wall
-  const H = 520; // wall height
-  const F = 820; // floor depth toward the camera
-  const ZC = -170; // where the floor starts curving up (further back = more room)
-  const W = 1900; // width (wide enough that edges stay out of frame)
+  const Xw = 340; // side walls at x = ±Xw
+  const Zb = -300; // back wall z (studio pushed back)
+  const Zf = 640; // open front, toward the camera
+  const H = 620; // wall height
+  const R = 150; // floor→wall bevel radius (large, soft)
+  const Rc = 95; // rounded vertical corner radius
+  const seg = 14; // segments per corner
+  const fseg = 16; // segments along the bevel
 
-  // Profile points in the (z, y) plane, front floor → curve → up the wall.
-  const prof = [];
-  prof.push({ z: F, y: 0 });
-  prof.push({ z: ZC, y: 0 });
-  const seg = 20;
+  const colFloor = new THREE.Color(0xb4ae9b); // warm, deep for mood
+  const colWall = new THREE.Color(0xcbc6b4);
+
+  const group = new THREE.Group();
+
+  // ---- Flat interior floor ----
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(2400, 2400),
+    new THREE.MeshStandardMaterial({ color: colFloor, roughness: 0.93, metalness: 0, envMapIntensity: 0.28 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  group.add(floor);
+
+  // ---- Wall-base path (n=0 line), traced around 3 sides, open at the front ----
+  const path = [];
+  const push = (x, z, nx, nz) => path.push({ x, z, nx, nz });
+  push(Xw, Zf, 1, 0); // front-right
+  push(Xw, Zb + Rc, 1, 0); // up the right wall
   for (let i = 1; i <= seg; i++) {
-    const a = -Math.PI / 2 - (Math.PI / 2) * (i / seg); // -90° → -180°
-    prof.push({ z: ZC + R * Math.cos(a), y: R + R * Math.sin(a) });
+    const a = (Math.PI / 2) * (i / seg); // back-right corner
+    push(Xw - Rc + Rc * Math.cos(a), Zb + Rc - Rc * Math.sin(a), Math.cos(a), -Math.sin(a));
   }
-  prof.push({ z: ZC - R, y: H });
+  push(-(Xw - Rc), Zb, 0, -1); // across the back
+  for (let i = 1; i <= seg; i++) {
+    const a = (Math.PI / 2) * (i / seg); // back-left corner
+    push(-(Xw - Rc) - Rc * Math.sin(a), Zb + Rc - Rc * Math.cos(a), -Math.sin(a), -Math.cos(a));
+  }
+  push(-Xw, Zf, -1, 0); // down the left wall to the front
 
-  // Warm cream studio (#E2DED0), gently graded floor → wall.
-  const colBot = new THREE.Color(0xd7d3c5);
-  const colTop = new THREE.Color(0xe6e2d6);
-  const xs = [-W / 2, W / 2];
+  // ---- Profile: floor bevel (quarter circle) then straight wall ----
+  const prof = [];
+  for (let i = 0; i <= fseg; i++) {
+    const phi = Math.PI - (Math.PI / 2) * (i / fseg); // 180° → 90°
+    prof.push({ n: R * Math.cos(phi), y: R * Math.sin(phi) });
+  }
+  const wseg = 6;
+  for (let i = 1; i <= wseg; i++) prof.push({ n: 0, y: R + (H - R) * (i / wseg) });
 
+  // ---- Sweep the profile along the path ----
   const positions = [];
   const colors = [];
   const indices = [];
-  for (let p = 0; p < prof.length; p++) {
-    const { z, y } = prof[p];
-    const t = Math.min(1, y / (H * 0.6)); // soft vertical gradient
-    const col = colBot.clone().lerp(colTop, t);
-    for (let xi = 0; xi < 2; xi++) {
-      positions.push(xs[xi], y, z);
-      colors.push(col.r, col.g, col.b);
+  const P = prof.length;
+  for (let i = 0; i < path.length; i++) {
+    const { x, z, nx, nz } = path[i];
+    for (let j = 0; j < P; j++) {
+      const { n, y } = prof[j];
+      positions.push(x + n * nx, y, z + n * nz);
+      const t = Math.min(1, y / (H * 0.5));
+      const c = colFloor.clone().lerp(colWall, t);
+      colors.push(c.r, c.g, c.b);
     }
   }
-  for (let p = 0; p < prof.length - 1; p++) {
-    const v00 = p * 2;
-    const v01 = p * 2 + 1;
-    const v10 = (p + 1) * 2;
-    const v11 = (p + 1) * 2 + 1;
-    // Wound so normals face up (floor) / toward the camera (wall).
-    indices.push(v00, v11, v10, v00, v01, v11);
+  for (let i = 0; i < path.length - 1; i++) {
+    for (let j = 0; j < P - 1; j++) {
+      const a = i * P + j;
+      const b = i * P + j + 1;
+      const c = (i + 1) * P + j;
+      const d = (i + 1) * P + j + 1;
+      indices.push(a, c, b, b, c, d);
+    }
   }
 
   const g = new THREE.BufferGeometry();
@@ -53,13 +86,18 @@ export function buildCove() {
   g.setIndex(indices);
   g.computeVertexNormals();
 
-  const m = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 0.94,
-    metalness: 0,
-    envMapIntensity: 0.35,
-  });
-  const mesh = new THREE.Mesh(g, m);
-  mesh.receiveShadow = true;
-  return mesh;
+  const walls = new THREE.Mesh(
+    g,
+    new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.95,
+      metalness: 0,
+      envMapIntensity: 0.28,
+      side: THREE.DoubleSide,
+    })
+  );
+  walls.receiveShadow = true;
+  group.add(walls);
+
+  return group;
 }

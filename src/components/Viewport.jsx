@@ -7,7 +7,7 @@ import { buildUnit } from "../three/buildUnit.js";
 import { buildCove } from "../three/cove.js";
 
 // The wardrobe sits back from centre so there's studio floor in front of it.
-const UNIT_Z = -55;
+const UNIT_Z = -75;
 
 // Self-contained WebGL viewport. Owns the renderer, lights, camera orbit and
 // door raycasting; rebuilds only the unit group when `design` changes.
@@ -20,7 +20,7 @@ export default function Viewport({ design }) {
   const doorsRef = useRef([]);
   const rotationRef = useRef({ x: -0.18, y: 0.6 });
   const dragRef = useRef({ dragging: false, lastX: 0, lastY: 0 });
-  const distanceRef = useRef(540);
+  const distanceRef = useRef(490);
   const lookAtYRef = useRef(100);
 
   // One-time scene setup.
@@ -37,7 +37,7 @@ export default function Viewport({ design }) {
     renderer.shadowMap.type = THREE.VSMShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 0.74;
     host.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -46,8 +46,8 @@ export default function Viewport({ design }) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-    // Warm cream background matching the cyclorama's upper tone (#E2DED0).
-    scene.background = new THREE.Color(0xe2ded0);
+    // Deeper warm background so the open sides/top read moody, not blown out.
+    scene.background = new THREE.Color(0xc0b9a6);
 
     // ---- Studio softbox rig (RectAreaLights) ----
     // Warm three-point-plus-overhead setup: big soft sources for gentle,
@@ -63,17 +63,17 @@ export default function Viewport({ design }) {
       return l;
     };
     // Key — large warm softbox, front-left, raised ~40°. Brightest.
-    softbox(0xffe1b8, 5.0, 260, 340, [-190, 250, 210], [aim.x, aim.y, aim.z]);
-    // Fill — bigger, softer, opposite side at ~55% of key, warm-neutral.
-    softbox(0xffeed6, 2.7, 340, 380, [210, 180, 200], [aim.x, aim.y, aim.z]);
+    softbox(0xffc888, 3.3, 260, 340, [-200, 250, 220], [aim.x, aim.y, aim.z]);
+    // Fill — bigger, softer, opposite side; kept low for moody shadow contrast.
+    softbox(0xffd6a2, 0.8, 340, 380, [220, 180, 200], [aim.x, aim.y, aim.z]);
     // Rim / back — behind and above, grazes the top/back edges for separation.
-    softbox(0xffe9cc, 4.2, 260, 220, [70, 280, -280], [aim.x, aim.y + 40, aim.z]);
-    // Overhead — soft top light for even illumination across the tops.
-    softbox(0xfff1e2, 2.2, 320, 320, [-20, 360, -30], [aim.x, 0, aim.z]);
+    softbox(0xffc890, 2.4, 260, 220, [80, 300, -300], [aim.x, aim.y + 40, aim.z]);
+    // Overhead — gentle top light so the tops don't go flat-black.
+    softbox(0xffd6aa, 0.6, 320, 320, [-20, 380, -40], [aim.x, 0, aim.z]);
 
     // Shadow-only directional, aligned with the key (RectAreaLights can't shadow).
-    const shadowLight = new THREE.DirectionalLight(0xffe8cf, 0.35);
-    shadowLight.position.set(-150, 240, 190);
+    const shadowLight = new THREE.DirectionalLight(0xffd7a8, 0.34);
+    shadowLight.position.set(-160, 250, 200);
     shadowLight.target.position.set(0, 0, UNIT_Z);
     shadowLight.castShadow = true;
     shadowLight.shadow.mapSize.set(2048, 2048);
@@ -148,10 +148,12 @@ export default function Viewport({ design }) {
       raf = requestAnimationFrame(animate);
       const { x, y } = rotationRef.current;
       const dist = distanceRef.current;
+      const e = -x; // elevation angle (default slightly above the product)
+      const ce = Math.cos(e);
       camera.position.set(
-        dist * Math.sin(y) * Math.cos(x),
-        Math.max(dist * Math.sin(x) + 60, 12),
-        UNIT_Z + dist * Math.cos(y) * Math.cos(x)
+        dist * Math.sin(y) * ce,
+        Math.max(lookAtYRef.current + dist * Math.sin(e), 15),
+        UNIT_Z + dist * Math.cos(y) * ce
       );
       camera.lookAt(0, lookAtYRef.current, UNIT_Z);
       doorsRef.current.forEach((d) => {
@@ -195,7 +197,7 @@ export default function Viewport({ design }) {
 
   const resetView = useCallback(() => {
     rotationRef.current = { x: -0.18, y: 0.6 };
-    distanceRef.current = 540;
+    distanceRef.current = 490;
   }, []);
 
   return (

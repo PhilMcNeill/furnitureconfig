@@ -16,7 +16,7 @@ export function buildUnit(design) {
     map: isWood ? getWoodTexture() : null,
     roughness: isWood ? 0.82 : 0.62,
     metalness: 0.04,
-    envMapIntensity: 0.7,
+    envMapIntensity: 0.5,
   });
   const edgeMaterial = new THREE.MeshStandardMaterial({
     color: isWood ? new THREE.Color(0xffffff).offsetHSL(0, 0, -0.08) : new THREE.Color(finish.hex).offsetHSL(0, 0, -0.06),
