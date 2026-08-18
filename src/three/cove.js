@@ -4,24 +4,26 @@ import * as THREE from "three";
 // the floor, curves up through a fillet, and continues as the back wall — so
 // there is no floor/wall seam at all. Swept from a 2D profile across the width.
 export function buildCove() {
-  const R = 75; // fillet radius where floor meets wall
-  const H = 360; // wall height
-  const F = 560; // floor depth toward the camera
-  const W = 1000; // width
+  const R = 80; // fillet radius where floor meets wall
+  const H = 520; // wall height
+  const F = 820; // floor depth toward the camera
+  const ZC = -170; // where the floor starts curving up (further back = more room)
+  const W = 1900; // width (wide enough that edges stay out of frame)
 
   // Profile points in the (z, y) plane, front floor → curve → up the wall.
   const prof = [];
   prof.push({ z: F, y: 0 });
-  prof.push({ z: 0, y: 0 });
+  prof.push({ z: ZC, y: 0 });
   const seg = 20;
   for (let i = 1; i <= seg; i++) {
     const a = -Math.PI / 2 - (Math.PI / 2) * (i / seg); // -90° → -180°
-    prof.push({ z: R * Math.cos(a), y: R + R * Math.sin(a) });
+    prof.push({ z: ZC + R * Math.cos(a), y: R + R * Math.sin(a) });
   }
-  prof.push({ z: -R, y: H });
+  prof.push({ z: ZC - R, y: H });
 
-  const colBot = new THREE.Color(0xc6c6c9);
-  const colTop = new THREE.Color(0xdcdcde);
+  // Warm cream studio (#E2DED0), gently graded floor → wall.
+  const colBot = new THREE.Color(0xd7d3c5);
+  const colTop = new THREE.Color(0xe6e2d6);
   const xs = [-W / 2, W / 2];
 
   const positions = [];

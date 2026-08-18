@@ -6,6 +6,9 @@ import { buildUnit } from "../three/buildUnit.js";
 import { getGoboTexture } from "../three/textures.js";
 import { buildCove } from "../three/cove.js";
 
+// The wardrobe sits back from centre so there's studio floor in front of it.
+const UNIT_Z = -55;
+
 // Self-contained WebGL viewport. Owns the renderer, lights, camera orbit and
 // door raycasting; rebuilds only the unit group when `design` changes.
 export default function Viewport({ design }) {
@@ -17,7 +20,7 @@ export default function Viewport({ design }) {
   const doorsRef = useRef([]);
   const rotationRef = useRef({ x: -0.18, y: 0.6 });
   const dragRef = useRef({ dragging: false, lastX: 0, lastY: 0 });
-  const distanceRef = useRef(460);
+  const distanceRef = useRef(540);
   const lookAtYRef = useRef(100);
 
   // One-time scene setup.
@@ -43,9 +46,8 @@ export default function Viewport({ design }) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-    // Neutral background; the cyclorama fills the frame, this only shows at the
-    // open sides so it's matched to the cove's upper tone to avoid any edge.
-    scene.background = new THREE.Color(0xd7d7da);
+    // Warm cream background matching the cyclorama's upper tone (#E2DED0).
+    scene.background = new THREE.Color(0xe2ded0);
 
     // A soft key for the main shadow, kept gentle since the IBL carries the fill.
     const key = new THREE.DirectionalLight(0xffffff, 0.85);
@@ -135,9 +137,9 @@ export default function Viewport({ design }) {
       camera.position.set(
         dist * Math.sin(y) * Math.cos(x),
         Math.max(dist * Math.sin(x) + 60, 12),
-        dist * Math.cos(y) * Math.cos(x)
+        UNIT_Z + dist * Math.cos(y) * Math.cos(x)
       );
-      camera.lookAt(0, lookAtYRef.current, 0);
+      camera.lookAt(0, lookAtYRef.current, UNIT_Z);
       doorsRef.current.forEach((d) => {
         const target = d.isOpen ? d.openAngle : 0;
         d.pivot.rotation.y += (target - d.pivot.rotation.y) * 0.12;
@@ -170,7 +172,7 @@ export default function Viewport({ design }) {
     }
     const { group, doorHinges } = buildUnit(design);
     group.position.y = design.params.height / 2;
-    group.position.z = 0;
+    group.position.z = UNIT_Z;
     scene.add(group);
     unitRef.current = group;
     lookAtYRef.current = design.params.height / 2;
@@ -179,7 +181,7 @@ export default function Viewport({ design }) {
 
   const resetView = useCallback(() => {
     rotationRef.current = { x: -0.18, y: 0.6 };
-    distanceRef.current = 460;
+    distanceRef.current = 540;
   }, []);
 
   return (
