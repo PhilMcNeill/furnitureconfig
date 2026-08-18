@@ -14,15 +14,17 @@ export function buildUnit(design) {
   const material = new THREE.MeshStandardMaterial({
     color: isWood ? 0xffffff : new THREE.Color(finish.hex),
     map: isWood ? getWoodTexture() : null,
-    roughness: isWood ? 0.85 : 0.72,
-    metalness: 0.03,
+    roughness: isWood ? 0.82 : 0.62,
+    metalness: 0.04,
+    envMapIntensity: 0.7,
   });
   const edgeMaterial = new THREE.MeshStandardMaterial({
     color: isWood ? new THREE.Color(0xffffff).offsetHSL(0, 0, -0.08) : new THREE.Color(finish.hex).offsetHSL(0, 0, -0.06),
     map: isWood ? getWoodTexture() : null,
     roughness: 0.85,
+    envMapIntensity: 0.6,
   });
-  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xb9bcc2, roughness: 0.35, metalness: 0.9 });
+  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xc2c5cb, roughness: 0.28, metalness: 0.95, envMapIntensity: 1.0 });
 
   const addBox = (w, h, d, x, y, z, mat = material) => {
     const geo = new THREE.BoxGeometry(Math.max(w, 0.1), Math.max(h, 0.1), Math.max(d, 0.1));
@@ -87,12 +89,6 @@ export function buildUnit(design) {
   floorAO.rotation.x = -Math.PI / 2;
   floorAO.position.set(0, -height / 2 + 0.08, 0);
   group.add(floorAO);
-  const wallAO = new THREE.Mesh(
-    new THREE.PlaneGeometry(width * 1.15, height * 1.1),
-    new THREE.MeshBasicMaterial({ map: getRadialAO(), transparent: true, depthWrite: false, opacity: 0.4 })
-  );
-  wallAO.position.set(0, 0, -depth / 2 + 0.05);
-  group.add(wallAO);
 
   // Doors — two leaves per column hinged at the outer edges.
   const doorHinges = [];

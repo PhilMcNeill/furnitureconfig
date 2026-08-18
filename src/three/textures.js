@@ -1,5 +1,64 @@
 import * as THREE from "three";
 
+// Dappled "gobo" light map — soft overlapping blobs, like sunlight filtered
+// through leaves/blinds. Projected by a SpotLight onto the floor to give the
+// scene a sense of place (the trick the ICG gallery uses via shadow-leaves).
+let goboCache = null;
+export function getGoboTexture() {
+  if (goboCache) return goboCache;
+  const s = 512;
+  const c = document.createElement("canvas");
+  c.width = c.height = s;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, s, s);
+  // Base wash so the lit area never goes fully black.
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.fillRect(0, 0, s, s);
+  // Scatter soft bright patches and darker gaps.
+  const blob = (x, y, r, a, light) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    const col = light ? "255,255,255" : "0,0,0";
+    g.addColorStop(0, `rgba(${col},${a})`);
+    g.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 40; i++) blob(rnd() * s, rnd() * s, 40 + rnd() * 90, 0.35 + rnd() * 0.4, true);
+  for (let i = 0; i < 26; i++) blob(rnd() * s, rnd() * s, 30 + rnd() * 70, 0.3 + rnd() * 0.4, false);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  goboCache = tex;
+  return tex;
+}
+
+// Neutral studio "cove" backdrop — a soft radial gradient, brighter behind the
+// product and falling off to the edges, so there's no hard wall/floor seam.
+let backdropCache = null;
+export function getBackdropTexture() {
+  if (backdropCache) return backdropCache;
+  const w = 1024;
+  const h = 1024;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(w / 2, h * 0.42, 0, w / 2, h * 0.42, h * 0.75);
+  g.addColorStop(0, "#ececed");
+  g.addColorStop(0.55, "#dcdcde");
+  g.addColorStop(1, "#c2c2c5");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  backdropCache = tex;
+  return tex;
+}
+
 // Procedural birch-ish grain — keeps the bundle light and looks the part on a
 // matte panel. Cached so every panel shares one GPU texture.
 let woodCache = null;

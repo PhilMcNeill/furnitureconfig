@@ -1,9 +1,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { RotateCcw } from "lucide-react";
 import { buildUnit } from "../three/buildUnit.js";
-
-const WALL_Z = -70;
+import { getGoboTexture, getBackdropTexture } from "../three/textures.js";
 
 // Self-contained WebGL viewport. Owns the renderer, lights, camera orbit and
 // door raycasting; rebuilds only the unit group when `design` changes.
@@ -23,7 +23,6 @@ export default function Viewport({ design }) {
   useEffect(() => {
     const host = hostRef.current;
     const scene = new THREE.Scene();
-    scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(38, 1, 1, 2000);
     cameraRef.current = camera;
@@ -38,37 +37,43 @@ export default function Viewport({ design }) {
     host.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const hemi = new THREE.HemisphereLight(0xf2f2f2, 0x3a3a3a, 0.55);
-    scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xffffff, 1.15);
+    // Image-based lighting: a PMREM of three's RoomEnvironment gives the panels
+    // soft, realistic reflections and ambient fill without any external assets.
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    // Seamless neutral "cove" backdrop behind the product.
+    scene.background = getBackdropTexture();
+
+    // A soft key for the main shadow, kept gentle since the IBL carries the fill.
+    const key = new THREE.DirectionalLight(0xffffff, 0.85);
     key.position.set(120, 200, 160);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
-    key.shadow.radius = 12;
-    key.shadow.blurSamples = 20;
+    key.shadow.radius = 14;
+    key.shadow.blurSamples = 24;
     Object.assign(key.shadow.camera, { left: -160, right: 160, top: 220, bottom: -160, near: 10, far: 700 });
     key.shadow.bias = 0.0002;
     key.shadow.camera.updateProjectionMatrix();
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.25);
-    fill.position.set(-150, 80, -100);
-    scene.add(fill);
+
+    // Dappled gobo spot — projects the leaf-light pattern onto the floor for a
+    // sense of place, the way the reference gallery does.
+    const gobo = new THREE.SpotLight(0xffffff, 3.2, 1100, Math.PI / 4.2, 0.5, 0.5);
+    gobo.position.set(-160, 240, 200);
+    gobo.target.position.set(30, 0, 70);
+    gobo.map = getGoboTexture();
+    gobo.castShadow = false;
+    scene.add(gobo);
+    scene.add(gobo.target);
 
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(800, 800),
-      new THREE.MeshStandardMaterial({ color: 0x8f8f8f, roughness: 0.95 })
+      new THREE.PlaneGeometry(1200, 1200),
+      new THREE.MeshStandardMaterial({ color: 0xc7c7ca, roughness: 0.85, metalness: 0.0, envMapIntensity: 0.4 })
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
-
-    const wall = new THREE.Mesh(
-      new THREE.PlaneGeometry(800, 420),
-      new THREE.MeshStandardMaterial({ color: 0xcfcfcf, roughness: 0.98 })
-    );
-    wall.position.set(0, 210, WALL_Z);
-    wall.receiveShadow = true;
-    scene.add(wall);
 
     sceneRef.current = scene;
 
@@ -168,7 +173,7 @@ export default function Viewport({ design }) {
     }
     const { group, doorHinges } = buildUnit(design);
     group.position.y = design.params.height / 2;
-    group.position.z = WALL_Z + design.params.depth / 2;
+    group.position.z = 0;
     scene.add(group);
     unitRef.current = group;
     lookAtYRef.current = design.params.height / 2;

@@ -143,11 +143,20 @@ body {
   inset: 0;
   cursor: grab;
 }
+/* Soft vignette to seat the product in the scene. */
+.viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 42%, transparent 55%, rgba(30, 30, 34, 0.16) 100%);
+}
 .viewport-canvas:active {
   cursor: grabbing;
 }
 .reset-btn {
   position: absolute;
+  z-index: 2;
   top: 12px;
   right: 12px;
   display: flex;
