@@ -46,11 +46,14 @@ export function buildCove() {
   }
   push(-Xw, Zf, -1, 0); // down the left wall to the front
 
-  // ---- Profile: floor bevel (quarter circle) then straight wall ----
+  // ---- Profile: concave floor→wall cove (quarter pipe) then straight wall ----
+  // Centre of curvature sits up-and-inward at (n=-R, y=R) so the surface is
+  // tangent to the floor at the bottom and to the wall at the top, sweeping
+  // smoothly through the corner (concave), not bulging into the room.
   const prof = [];
   for (let i = 0; i <= fseg; i++) {
-    const phi = Math.PI - (Math.PI / 2) * (i / fseg); // 180° → 90°
-    prof.push({ n: R * Math.cos(phi), y: R * Math.sin(phi) });
+    const th = -Math.PI / 2 + (Math.PI / 2) * (i / fseg); // -90° → 0°
+    prof.push({ n: -R + R * Math.cos(th), y: R + R * Math.sin(th) });
   }
   const wseg = 6;
   for (let i = 1; i <= wseg; i++) prof.push({ n: 0, y: R + (H - R) * (i / wseg) });
